@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'ticket_list_screen.dart';
+import 'flight_selection_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,6 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
+            // HEADER BIRU
             Container(
               width: double.infinity,
               padding: const EdgeInsets.only(top: 60, left: 25, right: 25, bottom: 40),
@@ -36,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
+
             Padding(
               padding: const EdgeInsets.all(20),
               child: Card(
@@ -49,13 +51,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       DropdownButtonFormField<String>(
                         decoration: const InputDecoration(labelText: "From", prefixIcon: Icon(Icons.flight_takeoff)),
                         items: _countries.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                        onChanged: (v) => _fromCountry = v,
+                        onChanged: (v) => setState(() => _fromCountry = v),
                       ),
                       const SizedBox(height: 15),
                       DropdownButtonFormField<String>(
                         decoration: const InputDecoration(labelText: "To", prefixIcon: Icon(Icons.flight_land)),
                         items: _countries.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                        onChanged: (v) => _toCountry = v,
+                        onChanged: (v) => setState(() => _toCountry = v),
                       ),
                       const SizedBox(height: 25),
                       const Text("Jumlah Penumpang", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
@@ -96,11 +98,20 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           onPressed: () {
                             if (_fromCountry != null && _toCountry != null) {
-                              Navigator.push(context, MaterialPageRoute(builder: (c) => TicketListScreen(
-                                from: _fromCountry!,
-                                to: _toCountry!,
-                                passengerCount: _passengerCount,
-                              )));
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => FlightSelectionScreen(
+                                    from: _fromCountry!,
+                                    to: _toCountry!,
+                                    passengerCount: _passengerCount,
+                                  ),
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Pilih rute asal dan tujuan dulu!")),
+                              );
                             }
                           },
                           child: const Text("SEARCH FLIGHTS", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),

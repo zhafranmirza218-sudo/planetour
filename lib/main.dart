@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:planetour/screens/home_screen.dart';
 import 'dart:async';
 import 'screens/radar_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/home_screen.dart';
+import 'screens/ticket_list_screen.dart';
+import 'screens/flight_selection_screen.dart';
+import 'screens/seat_selection_screen.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(const PlanetourApp());
@@ -16,8 +23,31 @@ class UserAccount {
 
 class TicketModel {
   final String from, to, airline, time, gate, seat;
-  final List<String> passengers;
-  TicketModel({required this.from, required this.to, required this.airline, required this.time, required this.gate, required this.seat, required this.passengers});
+  final int passengerCount;
+
+  TicketModel({
+    required this.from,
+    required this.to,
+    required this.airline,
+    required this.time,
+    required this.gate,
+    required this.seat,
+    required this.passengerCount
+  });
+
+  // MAPPING: Fungsi ini untuk mengubah data JSON dari PHP ke format Flutter
+  factory TicketModel.fromJson(Map<String, dynamic> json) {
+    return TicketModel(
+      // Kiri: nama variabel Flutter | Kanan: nama kolom di Database/PHP
+      from: json['from_location'] ?? '-',
+      to: json['to_location'] ?? '-',
+      airline: json['airline'] ?? '-',
+      time: json['travel_time'] ?? '-', // Sesuaikan jika di DB namanya 'travel_time'
+      gate: json['gate'] ?? '-',
+      seat: json['seat_number'] ?? '-', // Di DB kamu namanya 'seat_number'
+      passengerCount: int.tryParse(json['jumlah_orang'].toString()) ?? 1,
+    );
+  }
 }
 
 class NotificationModel {
@@ -28,72 +58,27 @@ class NotificationModel {
 }
 
 // --- 2. APP ENTRY ---
+// Di main.dart
 class PlanetourApp extends StatelessWidget {
   const PlanetourApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Planetour',
       theme: ThemeData(
-        useMaterial3: true,
-        textTheme: GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme),
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1A237E)),
+        primaryColor: const Color(0xFF1A237E),
+        textTheme: GoogleFonts.poppinsTextTheme(),
       ),
+
+      // 1. Kembalikan ke LoginScreen
       home: const LoginScreen(),
-    );
-  }
-}
 
-// --- 3. LOGIN SCREEN ---
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
-  @override
-  State<LoginScreen> createState() => _LoginScreenState();
-}
-
-class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(30.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text("Welcome Back!", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF1A237E))),
-              const Text("Login to start your journey", style: TextStyle(color: Colors.grey)),
-              const SizedBox(height: 40),
-              TextField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(labelText: "Email", prefixIcon: Icon(Icons.email_outlined), border: OutlineInputBorder())
-              ),
-              const SizedBox(height: 20),
-              const TextField(obscureText: true, decoration: InputDecoration(labelText: "Password", prefixIcon: Icon(Icons.lock_outline), border: OutlineInputBorder())),
-              const SizedBox(height: 30),
-              SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A237E), foregroundColor: Colors.white),
-                  onPressed: () {
-                    final user = UserAccount(
-                      name: _emailController.text.contains('@') ? _emailController.text.split('@')[0] : "Mirza",
-                      email: _emailController.text.isEmpty ? "mirza@ui.ac.id" : _emailController.text,
-                    );
-                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (c) => MainNavigation(userData: user)));
-                  },
-                  child: const Text("Login"),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      routes: {
+        '/home': (context) => const HomeScreen(),
+        '/login': (context) => const LoginScreen(),
+      },
     );
   }
 }
@@ -110,9 +95,19 @@ class _MainNavigationState extends State<MainNavigation> {
   int _selectedIndex = 0;
   late UserAccount currentUser;
 
+  // UPDATE: Memperbaiki penamaan parameter dummy data
   static List<TicketModel> myTickets = [
-    TicketModel(from: "Jakarta (CGK)", to: "Bali (DPS)", airline: "Garuda Indonesia", time: "08:00", gate: "G12", seat: "14A", passengers: ["Mirza"]),
+    TicketModel(
+        from: "Jakarta",
+        to: "Bali",
+        airline: "Garuda Indonesia",
+        time: "08:00",
+        gate: "G12",
+        seat: "14A",
+        passengerCount: 1
+    ),
   ];
+
   static List<NotificationModel> myNotifications = [
     NotificationModel(title: "Login Successful", desc: "Welcome to Planetour!", time: "Just now", icon: Icons.check_circle, color: Colors.green),
   ];
@@ -125,11 +120,15 @@ class _MainNavigationState extends State<MainNavigation> {
 
   @override
   Widget build(BuildContext context) {
+    // DI DALAM main.dart
     final List<Widget> _pages = [
       const HomeScreen(),
-      BookingsPage(tickets: myTickets),
+      const TicketListScreen(), // Memanggil TicketListScreen dari import
       NotificationsPage(notifications: myNotifications),
-      ProfilePage(user: currentUser, onUpdate: (updatedUser) => setState(() => currentUser = updatedUser)),
+      ProfilePage(
+          user: currentUser,
+          onUpdate: (updatedUser) => setState(() => currentUser = updatedUser)
+      ),
     ];
 
     return Scaffold(
@@ -148,7 +147,7 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-// --- 5. HOME SCREEN (INPUT PENUMPANG DI SINI) ---
+// --- 5. HOME SCREEN ---
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -159,9 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<String> _countries = ["Jakarta (CGK)", "Bali (DPS)", "Singapore (SIN)", "Tokyo (HND)"];
   String? _fromCountry;
   String? _toCountry;
-
-  // List controller penumpang dipindah ke sini
-  final List<TextEditingController> _passengerControllers = [TextEditingController()];
+  int _passengerCount = 1;
 
   @override
   Widget build(BuildContext context) {
@@ -173,91 +170,142 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.only(top: 60, left: 25, right: 25, bottom: 40),
-              decoration: const BoxDecoration(color: Color(0xFF1A237E), borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30))),
-              child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text("Find Your Flight", style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
-                Text("Enjoy your trip with Planetour", style: TextStyle(color: Colors.white70)),
-              ]),
+              decoration: const BoxDecoration(
+                  color: Color(0xFF1A237E),
+                  borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(30),
+                      bottomRight: Radius.circular(30))),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Find Your Flight",
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold)),
+                  Text("Enjoy your trip with Planetour",
+                      style: TextStyle(color: Colors.white70)),
+                ],
+              ),
             ),
             Padding(
               padding: const EdgeInsets.all(20),
               child: Card(
                 elevation: 5,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15)),
                 child: Padding(
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       DropdownButtonFormField<String>(
-                        decoration: const InputDecoration(labelText: "From", prefixIcon: Icon(Icons.flight_takeoff)),
-                        items: _countries.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                        decoration: const InputDecoration(
+                            labelText: "From",
+                            prefixIcon: Icon(Icons.flight_takeoff)),
+                        items: _countries
+                            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                            .toList(),
                         onChanged: (v) => _fromCountry = v,
                       ),
                       const SizedBox(height: 15),
                       DropdownButtonFormField<String>(
-                        decoration: const InputDecoration(labelText: "To", prefixIcon: Icon(Icons.flight_land)),
-                        items: _countries.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                        decoration: const InputDecoration(
+                            labelText: "To",
+                            prefixIcon: Icon(Icons.flight_land)),
+                        items: _countries
+                            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                            .toList(),
                         onChanged: (v) => _toCountry = v,
                       ),
-
                       const SizedBox(height: 25),
-                      // BAGIAN INPUT PENUMPANG
+                      const Text("Jumlah Penumpang",
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, color: Colors.grey)),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text("Daftar Penumpang", style: TextStyle(fontWeight: FontWeight.bold)),
-                          IconButton(
-                            onPressed: () => setState(() => _passengerControllers.add(TextEditingController())),
-                            icon: const Icon(Icons.add_circle, color: Color(0xFF1A237E)),
+                          const Row(
+                            children: [
+                              Icon(Icons.people_outline, color: Colors.grey),
+                              SizedBox(width: 10),
+                              Text("Penumpang", style: TextStyle(fontSize: 16)),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              IconButton(
+                                onPressed: () => setState(() =>
+                                _passengerCount > 1 ? _passengerCount-- : null),
+                                icon: const Icon(Icons.remove_circle_outline,
+                                    color: Colors.red),
+                              ),
+                              Text("$_passengerCount",
+                                  style: const TextStyle(
+                                      fontSize: 18, fontWeight: FontWeight.bold)),
+                              IconButton(
+                                onPressed: () => setState(() => _passengerCount++),
+                                icon: const Icon(Icons.add_circle_outline,
+                                    color: Color(0xFF1A237E)),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                      ...List.generate(_passengerControllers.length, (index) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: TextField(
-                          controller: _passengerControllers[index],
-                          decoration: InputDecoration(
-                              labelText: "Nama Penumpang ${index + 1}",
-                              border: const OutlineInputBorder(),
-                              isDense: true,
-                              suffixIcon: index == 0 ? null : IconButton(
-                                icon: const Icon(Icons.remove_circle, color: Colors.red),
-                                onPressed: () => setState(() => _passengerControllers.removeAt(index)),
-                              )
-                          ),
-                        ),
-                      )),
-
                       const SizedBox(height: 25),
+
+                      // TOMBOL SEARCH FLIGHTS
                       SizedBox(
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.orange[800], foregroundColor: Colors.white),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange[800],
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10))),
                           onPressed: () {
                             if (_fromCountry != null && _toCountry != null) {
-                              List<String> passengers = _passengerControllers.map((e) => e.text).toList();
-                              Navigator.push(context, MaterialPageRoute(builder: (c) => TicketListScreen(
-                                from: _fromCountry!,
-                                to: _toCountry!,
-                                passengers: passengers, // Kirim list penumpang
-                              )));
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => FlightSelectionScreen(
+                                    from: _fromCountry!,
+                                    to: _toCountry!,
+                                    passengerCount: _passengerCount,
+                                  ),
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text("Pilih rute asal dan tujuan dulu!")),
+                              );
                             }
                           },
-                          child: const Text("SEARCH FLIGHTS"),
+
+                          child: const Text("SEARCH FLIGHTS",
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16)),
                         ),
                       ),
+
                       const SizedBox(height: 12),
+
+                      // TOMBOL LIVE FLIGHT RADAR
                       SizedBox(
                         width: double.infinity,
                         height: 50,
                         child: OutlinedButton.icon(
-                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (c) => const RadarScreen())),
+                          onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (c) => const RadarScreen())),
                           icon: const Icon(Icons.map_outlined),
                           label: const Text("LIVE FLIGHT RADAR"),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Color(0xFF1A237E)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
                           ),
                         ),
                       ),
@@ -273,50 +321,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// --- 6. TICKET LIST SCREEN ---
-class TicketListScreen extends StatelessWidget {
-  final String from, to;
-  final List<String> passengers; // Terima list penumpang
-  const TicketListScreen({super.key, required this.from, required this.to, required this.passengers});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text("$from ✈ $to")),
-      body: ListView(
-        padding: const EdgeInsets.all(15),
-        children: [
-          _ticketItem(context, "Garuda Indonesia", "08:00", "Rp 1.500.000"),
-          _ticketItem(context, "AirAsia", "13:45", "Rp 850.000"),
-          _ticketItem(context, "Lion Air", "19:00", "Rp 920.000"),
-        ],
-      ),
-    );
-  }
-
-  Widget _ticketItem(BuildContext context, String airline, String time, String price) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 15),
-      child: ListTile(
-        leading: const Icon(Icons.airplanemode_active, color: Color(0xFF1A237E)),
-        title: Text(airline, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text("Departs: $time\n${passengers.length} Penumpang"),
-        trailing: Text(price, style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
-        onTap: () {
-          Navigator.push(context, MaterialPageRoute(builder: (c) => SeatSelectionScreen(
-              airline: airline, from: from, to: to, price: price, passengers: passengers
-          )));
-        },
-      ),
-    );
-  }
-}
-
 // --- 7. SEAT SELECTION SCREEN ---
 class SeatSelectionScreen extends StatefulWidget {
   final String airline, from, to, price;
-  final List<String> passengers;
-  const SeatSelectionScreen({super.key, required this.airline, required this.from, required this.to, required this.price, required this.passengers});
+  final int passengerCount;
+  const SeatSelectionScreen({super.key, required this.airline, required this.from, required this.to, required this.price, required this.passengerCount});
   @override
   State<SeatSelectionScreen> createState() => _SeatSelectionScreenState();
 }
@@ -331,7 +340,7 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(15),
-            child: Text("Penumpang: ${widget.passengers.join(', ')}", style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+            child: Text("Jumlah Penumpang: ${widget.passengerCount}", style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
           ),
           const Padding(padding: EdgeInsets.all(10), child: Text("DEPAN / COCKPIT", style: TextStyle(color: Colors.grey))),
           Expanded(
@@ -360,7 +369,7 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
                 Navigator.push(context, MaterialPageRoute(builder: (c) => PaymentScreen(
                   airline: widget.airline, price: widget.price, from: widget.from, to: widget.to,
                   seat: "${(selectedIndex! ~/ 5) + 1}${String.fromCharCode(65 + (selectedIndex! % 5))}",
-                  passengers: widget.passengers,
+                  passengerCount: widget.passengerCount,
                 )));
               },
               child: const Text("KONFIRMASI"),
@@ -375,8 +384,8 @@ class _SeatSelectionScreenState extends State<SeatSelectionScreen> {
 // --- 8. PAYMENT SCREEN ---
 class PaymentScreen extends StatefulWidget {
   final String airline, price, from, to, seat;
-  final List<String> passengers;
-  const PaymentScreen({super.key, required this.airline, required this.price, required this.from, required this.to, required this.seat, required this.passengers});
+  final int passengerCount;
+  const PaymentScreen({super.key, required this.airline, required this.price, required this.from, required this.to, required this.seat, required this.passengerCount});
   @override
   State<PaymentScreen> createState() => _PaymentScreenState();
 }
@@ -391,16 +400,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            ListTile(title: Text(widget.airline), subtitle: Text("${widget.passengers.length} Tiket • Seat ${widget.seat}"), trailing: Text(widget.price)),
-            const Divider(),
-            ...widget.passengers.map((p) => ListTile(leading: const Icon(Icons.person), title: Text(p), dense: true)),
+            ListTile(
+                title: Text(widget.airline),
+                subtitle: Text("${widget.passengerCount} Tiket • Seat ${widget.seat}"),
+                trailing: Text(widget.price)
+            ),
             const Divider(),
             RadioListTile<String>(title: const Text("Transfer Bank"), value: "Bank", groupValue: _method, onChanged: (v) => setState(() => _method = v)),
             RadioListTile<String>(title: const Text("E-Wallet"), value: "Wallet", groupValue: _method, onChanged: (v) => setState(() => _method = v)),
             const Spacer(),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A237E), foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 50)),
-              onPressed: _method == null ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => CountdownPayScreen(airline: widget.airline, price: widget.price, from: widget.from, to: widget.to, seat: widget.seat, passengers: widget.passengers))),
+              onPressed: _method == null ? null : () => Navigator.push(context, MaterialPageRoute(builder: (c) => CountdownPayScreen(
+                  airline: widget.airline, price: widget.price, from: widget.from, to: widget.to, seat: widget.seat, passengerCount: widget.passengerCount
+              ))),
               child: const Text("BAYAR SEKARANG"),
             )
           ],
@@ -410,11 +423,20 @@ class _PaymentScreenState extends State<PaymentScreen> {
   }
 }
 
-// --- 9. SIMULASI PEMBAYARAN ---
+// --- 9. SIMULASI PEMBAYARAN (VERSI FIX MENU BAWAH) ---
 class CountdownPayScreen extends StatelessWidget {
   final String airline, price, from, to, seat;
-  final List<String> passengers;
-  const CountdownPayScreen({super.key, required this.airline, required this.price, required this.from, required this.to, required this.seat, required this.passengers});
+  final int passengerCount;
+
+  const CountdownPayScreen({
+    super.key,
+    required this.airline,
+    required this.price,
+    required this.from,
+    required this.to,
+    required this.seat,
+    required this.passengerCount
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -427,47 +449,64 @@ class CountdownPayScreen extends StatelessWidget {
             children: [
               const Icon(Icons.timer, size: 80, color: Colors.orange),
               const SizedBox(height: 20),
-              const Text("Menunggu Pembayaran...", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const Text("Menunggu Pembayaran...",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              Text("Total: $price", style: const TextStyle(color: Colors.grey)),
               const SizedBox(height: 40),
+
               ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 50)),
-                onPressed: () {
-                  _MainNavigationState.myTickets.insert(0, TicketModel(from: from, to: to, airline: airline, time: "10:00", gate: "B3", seat: seat, passengers: passengers));
-                  _MainNavigationState.myNotifications.insert(0, NotificationModel(title: "Payment Successful", desc: "Tiket $airline ($from - $to) dikonfirmasi.", time: "Just now", icon: Icons.check_circle, color: Colors.blue));
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                onPressed: () async {
+                  try {
+                    final response = await http.post(
+                      Uri.parse("http://192.168.18.237/planetour_api/add_booking.php"),
+                      body: {
+                        "airline": airline,
+                        "from_location": from,
+                        "to_location": to,
+                        "travel_time": "10:00",
+                        "gate": "B3",
+                        "seat": seat,
+                        "jumlah_orang": passengerCount.toString(),
+                      },
+                    );
 
-                  Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (c) => MainNavigation(userData: UserAccount(name: "Mirza", email: "mirza@ui.ac.id"))), (r) => false);
+                    if (response.statusCode == 200) {
+                      if (context.mounted) {
+                        // Balik ke MainNavigation agar Bar Navigasi Bawah muncul kembali
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(
+                            builder: (c) => MainNavigation( // JANGAN pakai const
+                              userData: UserAccount(
+                                name: "Mirza", // Gunakan nama langsung atau variabel yang tersedia
+                                email: "mirza@ui.ac.id",
+                              ),
+                            ),
+                          ),
+                              (route) => false,
+                        );
+                      }
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Gagal menyimpan ke database")));
+                    }
+                  }
                 },
-                child: const Text("SAYA SUDAH BAYAR"),
-              )
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// --- 10. BOOKINGS PAGE ---
-class BookingsPage extends StatelessWidget {
-  final List<TicketModel> tickets;
-  const BookingsPage({super.key, required this.tickets});
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("My Tickets")),
-      body: tickets.isEmpty ? const Center(child: Text("No Tickets")) : ListView.builder(
-        padding: const EdgeInsets.all(20),
-        itemCount: tickets.length,
-        itemBuilder: (context, i) => Card(
-          margin: const EdgeInsets.only(bottom: 20),
-          child: Column(
-            children: [
-              ListTile(title: Text("${tickets[i].from} ✈ ${tickets[i].to}"), subtitle: Text("${tickets[i].airline} • Seat ${tickets[i].seat}")),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Align(alignment: Alignment.centerLeft, child: Text("Penumpang: ${tickets[i].passengers.join(", ")}", style: const TextStyle(fontSize: 12, color: Colors.grey))),
+                child: const Text("SAYA SUDAH BAYAR", style: TextStyle(fontWeight: FontWeight.bold)),
               ),
-              const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: Icon(Icons.qr_code_2, size: 80)),
+
+              const SizedBox(height: 15),
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Batalkan Pembayaran", style: TextStyle(color: Colors.red))),
             ],
           ),
         ),
@@ -579,3 +618,9 @@ class NotificationsPage extends StatelessWidget {
     );
   }
 }
+
+// Tambahkan variabel global appTheme jika belum ada
+final appTheme = ThemeData(
+  primaryColor: const Color(0xFF1A237E),
+  textTheme: GoogleFonts.poppinsTextTheme(),
+);
