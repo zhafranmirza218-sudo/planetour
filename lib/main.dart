@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:planetour/screens/home_screen.dart';
 import 'dart:async';
+import 'package:http/http.dart' as http;
+
+// Import Screens
 import 'screens/radar_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/ticket_list_screen.dart';
 import 'screens/flight_selection_screen.dart';
 import 'screens/seat_selection_screen.dart';
-import 'package:http/http.dart' as http;
+import 'screens/register_screen.dart'; // Sudah masuk!
+
+const String baseUrl = "http://192.168.18.237/planetour_api";
 
 void main() {
   runApp(const PlanetourApp());
@@ -58,7 +62,7 @@ class NotificationModel {
 }
 
 // --- 2. APP ENTRY ---
-// Di main.dart
+// Baris 60-an di kode kamu
 class PlanetourApp extends StatelessWidget {
   const PlanetourApp({super.key});
 
@@ -71,13 +75,11 @@ class PlanetourApp extends StatelessWidget {
         primaryColor: const Color(0xFF1A237E),
         textTheme: GoogleFonts.poppinsTextTheme(),
       ),
-
-      // 1. Kembalikan ke LoginScreen
       home: const LoginScreen(),
-
       routes: {
         '/home': (context) => const HomeScreen(),
         '/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegisterScreen(), // TAMBAHKAN INI
       },
     );
   }

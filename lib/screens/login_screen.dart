@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../main.dart'; // Pastikan di main.dart ada class MainNavigation dan UserAccount
+import '../main.dart';
+import 'register_screen.dart'; // IMPORT INI WAJIB ADA
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,7 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // GUNAKAN IP LAPTOP KAMU (Sesuaikan jika IP berubah)
+      // IP yang tadi sudah kita tes tembus di browser laptop
       var url = Uri.parse("http://192.168.18.237/planetour_api/login_api.php");
 
       var response = await http.post(url, body: {
@@ -32,19 +33,18 @@ class _LoginScreenState extends State<LoginScreen> {
         "password": _passController.text,
       }).timeout(const Duration(seconds: 10));
 
+      print("Response Login: ${response.body}");
       var data = jsonDecode(response.body);
 
       if (data['status'] == 'success') {
         if (!mounted) return;
 
-        // --- PERBAIKAN DI SINI ---
-        // Kita ambil data user dari response API dan kirim ke MainNavigation
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (c) => MainNavigation(
               userData: UserAccount(
-                name: data['user']['nama'] ?? "User", // Ambil nama dari field 'nama' di database
+                name: data['user']['nama'] ?? "User",
                 email: data['user']['email'] ?? _emailController.text,
               ),
             ),
@@ -54,14 +54,15 @@ class _LoginScreenState extends State<LoginScreen> {
         _notif(data['message']);
       }
     } catch (e) {
-      _notif("Gagal konek ke server. Cek XAMPP & IP kamu!");
       print("Error Login: $e");
+      _notif("Gagal konek ke server. Cek XAMPP & IP kamu!");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _notif(String pesan) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(pesan),
@@ -122,9 +123,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 20),
+
+              // --- PERBAIKAN NAVIGASI DI SINI ---
               TextButton(
                 onPressed: () {
-                  // Tambahkan navigasi ke Register jika perlu
+                  // Sekarang kalau dipencet, dia beneran pindah ke Register
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                  );
                 },
                 child: const Text("Don't have an account? Register Now", style: TextStyle(color: Color(0xFF1A237E))),
               )

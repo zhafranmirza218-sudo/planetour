@@ -15,6 +15,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _passController = TextEditingController();
   bool _isLoading = false;
 
+  // GUNAKAN IP YANG SAMA DENGAN MAIN.DART
+  final String apiUrl = "http://192.168.18.237/planetour_api/register_api.php";
+
   Future<void> _register() async {
     if (_nameController.text.isEmpty || _emailController.text.isEmpty || _passController.text.isEmpty) {
       _notif("Semua kolom harus diisi!");
@@ -24,30 +27,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      var url = Uri.parse("http://localhost/planetour_api/register_api.php");
-      var response = await http.post(url, body: {
-        "nama": _nameController.text,
-        "email": _emailController.text,
-        "password": _passController.text,
-      });
+      print("Mencoba kirim ke: $apiUrl");
+      var response = await http.post(
+        Uri.parse(apiUrl),
+        body: {
+          "nama": _nameController.text,
+          "email": _emailController.text,
+          "password": _passController.text,
+        },
+      ).timeout(const Duration(seconds: 10));
 
+      print("DEBUG SERVER: ${response.body}");
       var data = jsonDecode(response.body);
 
       if (data['status'] == 'success') {
-        _notif("Berhasil daftar! Silakan login.", isError: false);
+        _notif("Akun berhasil dibuat!", isError: false);
         if (!mounted) return;
-        Navigator.pop(context); // Kembali ke halaman Login
+        Navigator.pushReplacementNamed(context, '/login');
       } else {
         _notif(data['message']);
       }
     } catch (e) {
-      _notif("Koneksi gagal.");
+      print("ERROR REGISTER: $e");
+      _notif("Koneksi gagal. Cek XAMPP & Firewall!");
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _notif(String pesan, {bool isError = true}) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(pesan), backgroundColor: isError ? Colors.red : Colors.green),
     );
@@ -56,11 +65,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Create Account")),
-      body: Padding(
+      appBar: AppBar(title: const Text("Create Account"), backgroundColor: const Color(0xFF1A237E), foregroundColor: Colors.white),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(30),
         child: Column(
           children: [
+            const Icon(Icons.person_add, size: 80, color: Color(0xFF1A237E)),
+            const SizedBox(height: 30),
             TextField(controller: _nameController, decoration: const InputDecoration(labelText: "Full Name", border: OutlineInputBorder())),
             const SizedBox(height: 15),
             TextField(controller: _emailController, decoration: const InputDecoration(labelText: "Email", border: OutlineInputBorder())),
@@ -73,7 +84,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A237E)),
                 onPressed: _isLoading ? null : _register,
-                child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text("REGISTER", style: TextStyle(color: Colors.white)),
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text("REGISTER", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ),
           ],
